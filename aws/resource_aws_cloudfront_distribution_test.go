@@ -76,9 +76,6 @@ func testSweepCloudFrontDistributions(region string) error {
 }
 
 func TestAccAWSCloudFrontDistribution_importBasic(t *testing.T) {
-	ri := acctest.RandInt()
-	testConfig := fmt.Sprintf(testAccAWSCloudFrontDistributionS3Config, ri, originBucket, logBucket, testAccAWSCloudFrontDistributionRetainConfig())
-
 	resourceName := "aws_cloudfront_distribution.s3_distribution"
 
 	resource.ParallelTest(t, resource.TestCase{
@@ -87,7 +84,7 @@ func TestAccAWSCloudFrontDistribution_importBasic(t *testing.T) {
 		CheckDestroy: testAccCheckCloudFrontDistributionDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testConfig,
+				Config: testAccAWSCloudFrontDistributionS3Config(""),
 			},
 			{
 				ResourceName:      resourceName,
@@ -104,15 +101,13 @@ func TestAccAWSCloudFrontDistribution_importBasic(t *testing.T) {
 // If you are testing manually and can't wait for deletion, set the
 // TF_TEST_CLOUDFRONT_RETAIN environment variable.
 func TestAccAWSCloudFrontDistribution_S3Origin(t *testing.T) {
-	ri := acctest.RandInt()
-	testConfig := fmt.Sprintf(testAccAWSCloudFrontDistributionS3Config, ri, originBucket, logBucket, testAccAWSCloudFrontDistributionRetainConfig())
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testAccCheckCloudFrontDistributionDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testConfig,
+				Config: testAccAWSCloudFrontDistributionS3Config(""),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckCloudFrontDistributionExistence(
 						"aws_cloudfront_distribution.s3_distribution",
@@ -129,17 +124,13 @@ func TestAccAWSCloudFrontDistribution_S3Origin(t *testing.T) {
 }
 
 func TestAccAWSCloudFrontDistribution_S3OriginWithTags(t *testing.T) {
-	ri := acctest.RandInt()
-	preConfig := fmt.Sprintf(testAccAWSCloudFrontDistributionS3ConfigWithTags, ri, originBucket, logBucket, testAccAWSCloudFrontDistributionRetainConfig())
-	postConfig := fmt.Sprintf(testAccAWSCloudFrontDistributionS3ConfigWithTagsUpdated, ri, originBucket, logBucket, testAccAWSCloudFrontDistributionRetainConfig())
-
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testAccCheckCloudFrontDistributionDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: preConfig,
+				Config: testAccAWSCloudFrontDistributionS3ConfigWithTags(),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckCloudFrontDistributionExistence(
 						"aws_cloudfront_distribution.s3_distribution",
@@ -153,7 +144,7 @@ func TestAccAWSCloudFrontDistribution_S3OriginWithTags(t *testing.T) {
 				),
 			},
 			{
-				Config: postConfig,
+				Config: testAccAWSCloudFrontDistributionS3ConfigWithTagsUpdated(),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckCloudFrontDistributionExistence(
 						"aws_cloudfront_distribution.s3_distribution",
@@ -495,7 +486,10 @@ resource "aws_s3_bucket" "s3_bucket_logs" {
 }
 `)
 
-var testAccAWSCloudFrontDistributionS3Config = `
+func testAccAWSCloudFrontDistributionS3Config(extra string) string {
+	ri := acctest.RandInt()
+
+	return fmt.Sprintf(`
 variable rand_id {
 	default = %d
 }
@@ -546,110 +540,25 @@ resource "aws_cloudfront_distribution" "s3_distribution" {
 	}
 	%s
 }
-`
-
-var testAccAWSCloudFrontDistributionS3ConfigWithTags = `
-variable rand_id {
-	default = %d
+`, ri, originBucket, logBucket, testAccAWSCloudFrontDistributionRetainConfig()+extra)
 }
 
-# origin bucket
-%s
-
-# log bucket
-%s
-
-resource "aws_cloudfront_distribution" "s3_distribution" {
-	origin {
-		domain_name = "${aws_s3_bucket.s3_bucket_origin.id}.s3.amazonaws.com"
-		origin_id = "myS3Origin"
-	}
-	enabled = true
-	default_root_object = "index.html"
-	aliases = [ "mysite.${var.rand_id}.example.com", "yoursite.${var.rand_id}.example.com" ]
-	default_cache_behavior {
-		allowed_methods = [ "DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT" ]
-		cached_methods = [ "GET", "HEAD" ]
-		target_origin_id = "myS3Origin"
-		forwarded_values {
-			query_string = false
-			cookies {
-				forward = "none"
-			}
-		}
-		viewer_protocol_policy = "allow-all"
-		min_ttl = 0
-		default_ttl = 3600
-		max_ttl = 86400
-	}
-	price_class = "PriceClass_200"
-	restrictions {
-		geo_restriction {
-			restriction_type = "whitelist"
-			locations = [ "US", "CA", "GB", "DE" ]
-		}
-	}
-	viewer_certificate {
-		cloudfront_default_certificate = true
-	}
+func testAccAWSCloudFrontDistributionS3ConfigWithTags() string {
+	return testAccAWSCloudFrontDistributionS3Config(`
 	tags {
             environment = "production"
             account = "main"
 	}
-	%s
-}
-`
-
-var testAccAWSCloudFrontDistributionS3ConfigWithTagsUpdated = `
-variable rand_id {
-	default = %d
+`)
 }
 
-# origin bucket
-%s
-
-# log bucket
-%s
-
-resource "aws_cloudfront_distribution" "s3_distribution" {
-	origin {
-		domain_name = "${aws_s3_bucket.s3_bucket_origin.id}.s3.amazonaws.com"
-		origin_id = "myS3Origin"
-	}
-	enabled = true
-	default_root_object = "index.html"
-	aliases = [ "mysite.${var.rand_id}.example.com", "yoursite.${var.rand_id}.example.com" ]
-	default_cache_behavior {
-		allowed_methods = [ "DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT" ]
-		cached_methods = [ "GET", "HEAD" ]
-		target_origin_id = "myS3Origin"
-		forwarded_values {
-			query_string = false
-			cookies {
-				forward = "none"
-			}
-		}
-		viewer_protocol_policy = "allow-all"
-		min_ttl = 0
-		default_ttl = 3600
-		max_ttl = 86400
-	}
-	price_class = "PriceClass_200"
-	restrictions {
-		geo_restriction {
-			restriction_type = "whitelist"
-			locations = [ "US", "CA", "GB", "DE" ]
-		}
-	}
-	viewer_certificate {
-		cloudfront_default_certificate = true
-	}
+func testAccAWSCloudFrontDistributionS3ConfigWithTagsUpdated() string {
+	return testAccAWSCloudFrontDistributionS3Config(`
 	tags {
             environment = "dev"
 	}
-	%s
+`)
 }
-`
 
 var testAccAWSCloudFrontDistributionCustomConfig = fmt.Sprintf(`
 variable rand_id {
