@@ -64,4 +64,10 @@ In order to run the full suite of Acceptance tests, run `make testacc`.
 $ make testacc
 ```
 
+To target a particular test pass the TESTARGS environment variable to `make testacc`
+
+```sh
+$ make testacc TESTARGS='-run=TestAccAWSLaunchTemplate_'
+```
+
 If you need to add a new package in the vendor directory under `github.com/aws/aws-sdk-go`, create a separate PR handling _only_ the update of the vendor for your new requirement. Make sure to pin your dependency to a specific version, and that all versions of `github.com/aws/aws-sdk-go/*` are pinned to the same version.
